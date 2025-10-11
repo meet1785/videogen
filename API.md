@@ -107,7 +107,7 @@ Create a new video generation task.
   "status": "pending",
   "message": "Video generation task created",
   "video_url": null,
-  "created_at": "2025-10-11T03:38:19.773Z",
+  "created_at": "2024-10-11T10:30:00.000Z",
   "completed_at": null,
   "metadata": null
 }
@@ -148,8 +148,8 @@ Check the status of a video generation task.
   "message": "Video generated successfully",
   "video_url": "/download/123e4567-e89b-12d3-a456-426614174000.mp4",
   "error": null,
-  "created_at": "2025-10-11T03:38:19.773Z",
-  "completed_at": "2025-10-11T03:40:25.891Z"
+  "created_at": "2024-10-11T10:30:00.000Z",
+  "completed_at": "2024-10-11T10:32:15.000Z"
 }
 ```
 
@@ -213,7 +213,7 @@ Special endpoint optimized for n8n automation workflows.
   "status": "pending",
   "message": "Video generation task created successfully",
   "poll_url": "/status/123e4567-e89b-12d3-a456-426614174000",
-  "created_at": "2025-10-11T03:38:19.773Z"
+  "created_at": "2024-10-11T10:30:00.000Z"
 }
 ```
 
@@ -460,8 +460,8 @@ N8N_AUTH_TOKEN=your-token
   "video_url": "/download/123e4567-e89b-12d3-a456-426614174000.mp4",
   "prompt": "Original prompt",
   "platform": "instagram",
-  "created_at": "2025-10-11T03:38:19.773Z",
-  "completed_at": "2025-10-11T03:40:25.891Z"
+  "created_at": "2024-10-11T10:30:00.000Z",
+  "completed_at": "2024-10-11T10:32:15.000Z"
 }
 ```
 
