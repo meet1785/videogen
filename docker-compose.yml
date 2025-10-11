@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  videogen:
+    build: .
+    container_name: videogen-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./outputs:/app/outputs
+      - ./models:/app/models
+      - ./temp:/app/temp
+    environment:
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DEVICE=cpu
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
