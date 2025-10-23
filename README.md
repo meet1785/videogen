@@ -2,6 +2,37 @@
 
 A powerful video generation service that creates videos from text prompts, optimized for Instagram and YouTube content creation. Built with FastAPI and designed for easy integration with n8n automation workflows.
 
+## 🎥 Simple AI Video Generator (Free Codespaces + Hugging Face)
+
+Generate short AI videos directly from GitHub Codespaces for free using the standalone script.
+
+### 🚀 Quick Start (Simple Script)
+
+1. **Fork this repo**
+2. **Open in Codespaces**
+3. In terminal:
+   ```bash
+   sudo apt update && sudo apt install -y ffmpeg
+   pip install requests
+   export HF_TOKEN="your_huggingface_token_here"
+   python generate_video.py
+   ```
+
+4. Wait ~30 s — you'll get:
+   - `base.mp4` → 4 s video from Hugging Face GPU
+   - `output_10s.mp4` → 10 s version (looped 3×)
+
+### 🔧 Automate with GitHub Actions
+
+- Add your `HF_TOKEN` in repo → *Settings → Secrets → Actions*
+- Trigger the workflow "Generate AI Video" manually.
+
+---
+
+## Full Video Generation Service
+
+For production use with REST API, Docker, and n8n integration, see below:
+
 ## Features
 
 - 🎥 Generate videos from text prompts
