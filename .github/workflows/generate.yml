@@ -1,0 +1,19 @@
+name: Generate AI Video
+"on":
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        run: |
+          sudo apt update && sudo apt install -y ffmpeg
+          pip install -r requirements.txt
+      - name: Generate Video
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python generate_video.py <<< "a cinematic drone shot over mountains at sunrise"
