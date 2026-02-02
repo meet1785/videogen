@@ -1,11 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { auth } from "@clerk/nextjs/server";
 import { Play, Sparkles, Zap, Share2 } from "lucide-react";
 
-export default async function Home() {
-  const { userId } = await auth();
-
+export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-zinc-900 to-black">
       {/* Header */}
@@ -18,26 +15,11 @@ export default async function Home() {
             <span className="text-xl font-bold text-white">VidMax</span>
           </div>
           <nav className="flex items-center gap-4">
-            {userId ? (
-              <Link href="/dashboard">
-                <Button className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700">
-                  Go to Dashboard
-                </Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/sign-in">
-                  <Button variant="ghost" className="text-zinc-300 hover:text-white">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link href="/sign-up">
-                  <Button className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700">
-                    Get Started Free
-                  </Button>
-                </Link>
-              </>
-            )}
+            <Link href="/dashboard">
+              <Button className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700">
+                Go to Dashboard
+              </Button>
+            </Link>
           </nav>
         </div>
       </header>
@@ -63,7 +45,7 @@ export default async function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16">
-            <Link href={userId ? "/dashboard" : "/sign-up"}>
+            <Link href="/dashboard">
               <Button size="lg" className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-lg px-8 py-6">
                 Start Creating Free
               </Button>

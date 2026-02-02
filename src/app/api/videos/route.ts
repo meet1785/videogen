@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { inngest } from "@/inngest/client";
 
+// Demo user ID for development (auth disabled)
+const DEMO_USER_ID = "demo-user-001";
+
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await request.json();
     const { topic, style = "VIRAL", duration = 60, title } = body;
 
@@ -21,13 +17,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user from database
-    const user = await prisma.user.findUnique({
-      where: { clerkId: userId },
+    // Get or create demo user
+    let user = await prisma.user.findUnique({
+      where: { clerkId: DEMO_USER_ID },
     });
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      user = await prisma.user.create({
+        data: {
+          clerkId: DEMO_USER_ID,
+          email: "demo@vidmax.ai",
+          credits: 10,
+          plan: "FREE",
+        },
+      });
     }
 
     // Check credits
