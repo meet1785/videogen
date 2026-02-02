@@ -1,0 +1,90 @@
+name: Render Video
+
+on:
+  repository_dispatch:
+    types: [render-video]
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create render input file
+        run: |
+          echo '${{ toJson(github.event.client_payload) }}' > render-input.json
+
+      - name: Render video with Remotion
+        run: |
+          npx remotion render src/remotion/index.tsx VideoComposition \
+            --props="$(cat render-input.json)" \
+            --output="output.mp4" \
+            --codec=h264 \
+            --concurrency=4
+
+      - name: Upload to Supabase Storage
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VIDEO_ID: ${{ github.event.client_payload.videoId }}
+        run: |
+          # Upload video file to Supabase Storage
+          VIDEO_PATH="${VIDEO_ID}/final.mp4"
+          
+          curl -X POST \
+            "${SUPABASE_URL}/storage/v1/object/videos/${VIDEO_PATH}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: video/mp4" \
+            --data-binary @output.mp4
+
+          # Get public URL
+          VIDEO_URL="${SUPABASE_URL}/storage/v1/object/public/videos/${VIDEO_PATH}"
+          echo "VIDEO_URL=${VIDEO_URL}" >> $GITHUB_ENV
+
+      - name: Update database record
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VIDEO_ID: ${{ github.event.client_payload.videoId }}
+          VIDEO_URL: ${{ env.VIDEO_URL }}
+        run: |
+          # Update the video record in database via Supabase REST API
+          curl -X PATCH \
+            "${SUPABASE_URL}/rest/v1/Video?id=eq.${VIDEO_ID}" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"status\": \"COMPLETED\", \"videoUrl\": \"${VIDEO_URL}\"}"
+
+      - name: Notify completion (on failure)
+        if: failure()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          VIDEO_ID: ${{ github.event.client_payload.videoId }}
+        run: |
+          curl -X PATCH \
+            "${SUPABASE_URL}/rest/v1/Video?id=eq.${VIDEO_ID}" \
+            -H "apikey: ${SUPABASE_SERVICE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d '{"status": "FAILED", "errorMessage": "Render failed in GitHub Actions"}'

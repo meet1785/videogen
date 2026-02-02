@@ -1,0 +1,112 @@
+// Prisma schema for VidMax AI Video Generator
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  clerkId       String   @unique
+  email         String   @unique
+  name          String?
+  imageUrl      String?
+  credits       Int      @default(10)
+  plan          Plan     @default(FREE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  videos         Video[]
+  scheduledPosts ScheduledPost[]
+}
+
+model Video {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  topic       String
+  style       VideoStyle  @default(VIRAL)
+  duration    Int         @default(60) // seconds
+  status      VideoStatus @default(PENDING)
+  
+  // AI Generated Content
+  script      Json?       // Array of scenes with text and image prompts
+  
+  // Asset URLs (stored in Supabase Storage)
+  audioUrl    String?
+  captionsUrl String?
+  imageUrls   String[]    @default([])
+  videoUrl    String?     // Final rendered video
+  
+  // Metadata
+  errorMessage String?
+  renderJobId  String?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  scheduledPosts ScheduledPost[]
+}
+
+model ScheduledPost {
+  id          String       @id @default(cuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  videoId     String
+  video       Video        @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  
+  platform    Platform
+  publishTime DateTime
+  status      PostStatus   @default(SCHEDULED)
+  
+  // Platform response
+  postUrl     String?
+  postId      String?
+  errorMessage String?
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum VideoStyle {
+  VIRAL
+  EDUCATIONAL
+  STORYTELLING
+  PRODUCT
+  MOTIVATIONAL
+}
+
+enum VideoStatus {
+  PENDING
+  GENERATING_SCRIPT
+  GENERATING_AUDIO
+  GENERATING_IMAGES
+  RENDERING
+  COMPLETED
+  FAILED
+}
+
+enum Platform {
+  YOUTUBE_SHORTS
+  INSTAGRAM_REELS
+  TIKTOK
+}
+
+enum PostStatus {
+  SCHEDULED
+  POSTING
+  POSTED
+  FAILED
+}
