@@ -1,5 +1,5 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, registerRoot } from "remotion";
 import { VideoComposition } from "./VideoComposition";
 import type { Script, Caption } from "@/types";
 
@@ -32,7 +32,10 @@ const defaultProps: VideoCompositionProps = {
 
 // Calculate duration in frames based on script
 const calculateDurationInFrames = (script: Script, fps: number): number => {
-  return Math.max(script.totalDuration * fps, 150); // Min 5 seconds
+  // Use actual scene durations summed up, or totalDuration, with a minimum of 5 seconds
+  const totalSceneDuration = script.scenes.reduce((sum, scene) => sum + (scene.duration || 5), 0);
+  const duration = Math.max(script.totalDuration || totalSceneDuration, totalSceneDuration);
+  return Math.max(Math.ceil(duration * fps), fps * 5); // Min 5 seconds
 };
 
 export const RemotionRoot: React.FC = () => {
@@ -47,7 +50,19 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         defaultProps={defaultProps}
+        // Allow dynamic duration based on inputProps
+        calculateMetadata={async ({ props }) => {
+          const script = props.script as Script;
+          const totalSceneDuration = script.scenes.reduce((sum, scene) => sum + (scene.duration || 5), 0);
+          const duration = Math.max(script.totalDuration || totalSceneDuration, totalSceneDuration);
+          return {
+            durationInFrames: Math.max(Math.ceil(duration * 30), 150),
+          };
+        }}
       />
     </>
   );
 };
+
+// Register root for Remotion CLI
+registerRoot(RemotionRoot);

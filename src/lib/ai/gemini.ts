@@ -1,6 +1,7 @@
 import type { Script, Scene, VideoStyle } from "@/types";
 
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent";
+// Gemini 2.5 Flash - fast and reliable for JSON generation
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 const STYLE_PROMPTS: Record<string, string> = {
   VIRAL: "Create a fast-paced, attention-grabbing script with hooks, surprising facts, and a strong call to action. Use short punchy sentences.",
