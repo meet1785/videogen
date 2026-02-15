@@ -38,10 +38,25 @@ For production use with REST API, Docker, and n8n integration, see below:
 - 🎥 Generate videos from text prompts
 - 📱 Platform-specific presets (Instagram, YouTube, YouTube Shorts)
 - 🔄 Asynchronous video generation with task tracking
+- 🗄️ **Database-backed task persistence (NEW!)** - Tasks survive service restarts
 - 🚀 RESTful API with comprehensive documentation
 - 🔌 n8n webhook integration for automation
 - 🐳 Docker support for easy deployment
 - 🎨 Customizable video parameters (resolution, FPS, duration)
+
+## What's New
+
+### Database Persistence Feature 🎉
+
+The service now includes production-ready **database-backed task persistence** using SQLAlchemy + SQLite:
+
+- ✅ **Tasks persist across restarts** - No more lost task history
+- ✅ **Production ready** - Easy migration to PostgreSQL for scaling
+- ✅ **Full task history** - Query any historical task
+- ✅ **Zero breaking changes** - Existing API works exactly the same
+- ✅ **Comprehensive tests** - Full test coverage included
+
+[Learn more about the database feature →](DATABASE_FEATURE.md)
 
 ## Quick Start
 
