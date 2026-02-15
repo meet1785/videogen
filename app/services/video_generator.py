@@ -13,6 +13,7 @@ import imageio
 
 from app.config import settings, get_video_settings
 from app.models.schemas import VideoGenerationRequest
+from app.services.database import db_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +28,11 @@ class VideoGenerationService:
         self.output_dir = settings.output_dir
         self.temp_dir = settings.temp_dir
         self.executor = ThreadPoolExecutor(max_workers=4)
+        self.db = db_service
         
         # Create output directories
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.temp_dir, exist_ok=True)
-        
-        # Task storage (in production, use Redis or database)
-        self.tasks: Dict[str, Dict[str, Any]] = {}
         
         logger.info(f"VideoGenerationService initialized with device: {self.device}")
     
@@ -62,16 +61,20 @@ class VideoGenerationService:
         if platform_settings.get("max_duration") and duration > platform_settings["max_duration"]:
             duration = platform_settings["max_duration"]
         
-        # Store task information
-        self.tasks[task_id] = {
-            "status": "pending",
-            "progress": 0,
-            "message": "Task created",
-            "created_at": datetime.utcnow().isoformat(),
-            "request": request.dict(),
-            "video_url": None,
-            "error": None
-        }
+        # Create task in database
+        await self.db.create_task(
+            task_id=task_id,
+            prompt=request.prompt,
+            negative_prompt=request.negative_prompt,
+            platform=request.platform,
+            width=width,
+            height=height,
+            fps=fps,
+            duration=duration,
+            seed=request.seed,
+            num_inference_steps=request.num_inference_steps,
+            guidance_scale=request.guidance_scale
+        )
         
         # Start generation in background
         asyncio.create_task(self._generate_video_async(
@@ -97,9 +100,13 @@ class VideoGenerationService:
     ):
         """Generate video asynchronously."""
         try:
-            self.tasks[task_id]["status"] = "processing"
-            self.tasks[task_id]["message"] = "Generating video..."
-            self.tasks[task_id]["progress"] = 10
+            # Update status to processing
+            await self.db.update_task(
+                task_id,
+                status="processing",
+                message="Generating video...",
+                progress=10
+            )
             
             logger.info(f"Starting video generation for task {task_id}")
             
@@ -111,20 +118,28 @@ class VideoGenerationService:
                 task_id, prompt, negative_prompt, width, height, fps, duration, seed
             )
             
-            self.tasks[task_id]["status"] = "completed"
-            self.tasks[task_id]["message"] = "Video generated successfully"
-            self.tasks[task_id]["progress"] = 100
-            self.tasks[task_id]["video_url"] = f"/download/{os.path.basename(video_path)}"
-            self.tasks[task_id]["completed_at"] = datetime.utcnow().isoformat()
+            # Update task as completed
+            await self.db.update_task(
+                task_id,
+                status="completed",
+                message="Video generated successfully",
+                progress=100,
+                video_url=f"/api/v1/download/{os.path.basename(video_path)}",
+                video_path=video_path,
+                completed=True
+            )
             
             logger.info(f"Video generation completed for task {task_id}")
             
         except Exception as e:
             logger.error(f"Error generating video for task {task_id}: {str(e)}")
-            self.tasks[task_id]["status"] = "failed"
-            self.tasks[task_id]["message"] = "Video generation failed"
-            self.tasks[task_id]["error"] = str(e)
-            self.tasks[task_id]["completed_at"] = datetime.utcnow().isoformat()
+            await self.db.update_task(
+                task_id,
+                status="failed",
+                message="Video generation failed",
+                error=str(e),
+                completed=True
+            )
     
     def _generate_video_sync(
         self,
@@ -173,9 +188,9 @@ class VideoGenerationService:
             
             frames.append(frame)
             
-            # Update progress
-            progress = 10 + int((i / num_frames) * 80)
-            self.tasks[task_id]["progress"] = progress
+            # Note: Fine-grained progress tracking removed from sync function
+            # In production with real model inference, progress should be tracked
+            # via model callbacks or by running this as async with periodic updates
         
         # Save video
         output_path = os.path.join(self.output_dir, f"{task_id}.mp4")
@@ -213,26 +228,17 @@ class VideoGenerationService:
         # Default color
         return (100, 100, 200)
     
-    def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
+    async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get the status of a video generation task."""
-        return self.tasks.get(task_id)
+        task = await self.db.get_task(task_id)
+        if task:
+            return task.to_dict()
+        return None
     
-    def cleanup_old_tasks(self, max_age_hours: int = 24):
+    async def cleanup_old_tasks(self, days: int = 7):
         """Clean up old completed tasks."""
-        current_time = datetime.utcnow()
-        tasks_to_remove = []
-        
-        for task_id, task_info in self.tasks.items():
-            if task_info["status"] in ["completed", "failed"]:
-                created_at = datetime.fromisoformat(task_info["created_at"])
-                age_hours = (current_time - created_at).total_seconds() / 3600
-                
-                if age_hours > max_age_hours:
-                    tasks_to_remove.append(task_id)
-        
-        for task_id in tasks_to_remove:
-            del self.tasks[task_id]
-            logger.info(f"Cleaned up old task: {task_id}")
+        count = await self.db.delete_old_tasks(days=days)
+        logger.info(f"Cleaned up {count} old tasks")
 
 
 # Global service instance

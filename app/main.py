@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
 from app.config import settings
+from app.services.database import db_service
 
 # Configure logging
 logging.basicConfig(
@@ -21,8 +22,17 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Video Generation Service")
     logger.info(f"Device: {settings.device}")
     logger.info(f"Output directory: {settings.output_dir}")
+    
+    # Initialize database
+    logger.info("Initializing database...")
+    await db_service.init_db()
+    logger.info("Database initialized successfully")
+    
     yield
+    
+    # Cleanup on shutdown
     logger.info("Shutting down Video Generation Service")
+    await db_service.close()
 
 
 # Create FastAPI application
