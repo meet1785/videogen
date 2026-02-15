@@ -3,6 +3,12 @@
 import time
 import requests
 import sqlite3
+import sys
+import os
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from app.config import settings
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -42,7 +48,8 @@ def test_all():
     
     # Test database
     print("\n✓ Testing database persistence...")
-    conn = sqlite3.connect('outputs/tasks.db')
+    db_path = f"{settings.output_dir}/tasks.db"
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT COUNT(*) FROM tasks")
     count = cursor.fetchone()[0]

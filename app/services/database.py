@@ -1,7 +1,7 @@
 """Database service for task persistence."""
 import logging
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -79,7 +79,7 @@ class DatabaseService:
                 seed=seed,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
-                created_at=datetime.utcnow()
+                created_at=datetime.now(timezone.utc)
             )
             session.add(task)
             await session.commit()
@@ -130,7 +130,7 @@ class DatabaseService:
             if error is not None:
                 task.error = error
             if completed:
-                task.completed_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
             
             await session.commit()
             await session.refresh(task)
@@ -159,7 +159,7 @@ class DatabaseService:
     async def delete_old_tasks(self, days: int = 7) -> int:
         """Delete tasks older than specified days."""
         async with self.async_session() as session:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
             
             # Get tasks to delete
             result = await session.execute(
