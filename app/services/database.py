@@ -1,8 +1,8 @@
 """Database service for task persistence."""
 import logging
 from typing import Optional, List
-from datetime import datetime
-from sqlalchemy import select, and_, or_
+from datetime import datetime, timedelta
+from sqlalchemy import select, and_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -184,22 +184,19 @@ class DatabaseService:
     async def get_task_count(self, status: Optional[str] = None) -> int:
         """Get count of tasks."""
         async with self.async_session() as session:
-            query = select(Task)
+            query = select(func.count()).select_from(Task)
             if status:
                 query = query.where(Task.status == status)
             
             result = await session.execute(query)
-            tasks = result.scalars().all()
-            return len(tasks)
+            count = result.scalar()
+            return count if count else 0
     
     async def close(self):
         """Close database connection."""
         await self.engine.dispose()
         logger.info("Database connection closed")
 
-
-# Import timedelta for delete_old_tasks
-from datetime import timedelta
 
 # Global database service instance
 db_service = DatabaseService()

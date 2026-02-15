@@ -188,8 +188,9 @@ class VideoGenerationService:
             
             frames.append(frame)
             
-            # Update progress (but we can't use await in sync function)
-            # Progress will be tracked at higher level
+            # Note: Fine-grained progress tracking removed from sync function
+            # In production with real model inference, progress should be tracked
+            # via model callbacks or by running this as async with periodic updates
         
         # Save video
         output_path = os.path.join(self.output_dir, f"{task_id}.mp4")
