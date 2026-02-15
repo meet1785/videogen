@@ -53,12 +53,13 @@ async def generate_video(
     
     try:
         task_id = await video_service.generate_video(request)
+        task_info = await video_service.get_task_status(task_id)
         
         return VideoGenerationResponse(
             task_id=task_id,
             status="pending",
             message="Video generation task created",
-            created_at=video_service.tasks[task_id]["created_at"]
+            created_at=task_info["created_at"]
         )
     except Exception as e:
         logger.error(f"Error creating video generation task: {str(e)}")
@@ -68,7 +69,7 @@ async def generate_video(
 @router.get("/status/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str):
     """Get the status of a video generation task."""
-    task_info = video_service.get_task_status(task_id)
+    task_info = await video_service.get_task_status(task_id)
     
     if not task_info:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -117,14 +118,14 @@ async def n8n_webhook(
     
     try:
         task_id = await video_service.generate_video(request)
-        task_info = video_service.get_task_status(task_id)
+        task_info = await video_service.get_task_status(task_id)
         
         return {
             "success": True,
             "task_id": task_id,
             "status": "pending",
             "message": "Video generation task created successfully",
-            "poll_url": f"/status/{task_id}",
+            "poll_url": f"/api/v1/status/{task_id}",
             "created_at": task_info["created_at"]
         }
     except Exception as e:
