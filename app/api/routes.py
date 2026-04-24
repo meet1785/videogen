@@ -9,13 +9,19 @@ from app.models.schemas import (
     VideoGenerationRequest,
     VideoGenerationResponse,
     TaskStatusResponse,
+    TaskListResponse,
     HealthResponse
 )
 from app.services.video_generator import video_service
+from app.services.database import db_service
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+TASK_LIMIT_MIN = 1
+TASK_LIMIT_MAX = 100
+TASK_LIMIT_DEFAULT = 50
 
 
 def verify_api_key(x_api_key: Optional[str] = Header(None)):
@@ -83,6 +89,63 @@ async def get_task_status(task_id: str):
         error=task_info.get("error"),
         created_at=task_info["created_at"],
         completed_at=task_info.get("completed_at")
+    )
+
+
+@router.get("/tasks", response_model=TaskListResponse)
+async def list_tasks(
+    status: Optional[str] = None,
+    limit: int = TASK_LIMIT_DEFAULT,
+    offset: int = 0,
+    x_api_key: Optional[str] = Header(None)
+):
+    """
+    List video generation tasks with optional filtering and pagination.
+
+    - **status**: filter by task status (pending, processing, completed, failed)
+    - **limit**: maximum number of tasks to return (1-100, default 50)
+    - **offset**: number of tasks to skip for pagination (default 0)
+    """
+    if settings.enable_auth:
+        verify_api_key(x_api_key)
+
+    if limit < TASK_LIMIT_MIN or limit > TASK_LIMIT_MAX:
+        raise HTTPException(
+            status_code=422,
+            detail=f"limit must be between {TASK_LIMIT_MIN} and {TASK_LIMIT_MAX}"
+        )
+    if offset < 0:
+        raise HTTPException(status_code=422, detail="offset must be >= 0")
+
+    valid_statuses = {"pending", "processing", "completed", "failed"}
+    if status and status not in valid_statuses:
+        raise HTTPException(
+            status_code=422,
+            detail=f"status must be one of: {', '.join(sorted(valid_statuses))}"
+        )
+
+    tasks = await db_service.list_tasks(status=status, limit=limit, offset=offset)
+    total = await db_service.get_task_count(status=status)
+
+    task_responses = [
+        TaskStatusResponse(
+            task_id=task.id,
+            status=task.status,
+            progress=task.progress,
+            message=task.message,
+            video_url=task.video_url,
+            error=task.error,
+            created_at=task.created_at,
+            completed_at=task.completed_at,
+        )
+        for task in tasks
+    ]
+
+    return TaskListResponse(
+        tasks=task_responses,
+        total=total,
+        limit=limit,
+        offset=offset,
     )
 
 

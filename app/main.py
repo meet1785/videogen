@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router
 from app.config import settings
 from app.services.database import db_service
+from app.utils.rate_limiter import RateLimitMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -51,6 +52,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting (applied after CORS so preflight requests are not limited)
+app.add_middleware(RateLimitMiddleware)
 
 # Include API routes
 app.include_router(router, prefix="/api/v1", tags=["video-generation"])

@@ -60,7 +60,8 @@ class DatabaseService:
         duration: int,
         seed: Optional[int],
         num_inference_steps: int,
-        guidance_scale: float
+        guidance_scale: float,
+        webhook_url: Optional[str] = None
     ) -> Task:
         """Create a new task in the database."""
         async with self.async_session() as session:
@@ -79,6 +80,7 @@ class DatabaseService:
                 seed=seed,
                 num_inference_steps=num_inference_steps,
                 guidance_scale=guidance_scale,
+                webhook_url=webhook_url,
                 created_at=datetime.now(timezone.utc)
             )
             session.add(task)

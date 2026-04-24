@@ -50,7 +50,15 @@ class Settings(BaseSettings):
     # n8n Integration
     n8n_webhook_url: Optional[str] = None
     n8n_auth_token: Optional[str] = None
-    
+
+    # Rate Limiting
+    rate_limit_enabled: bool = True
+    rate_limit_requests: int = 60   # max requests per window
+    rate_limit_window: int = 60     # window size in seconds
+
+    # Webhook Notifications
+    webhook_timeout: int = 10       # seconds to wait for webhook response
+
     class Config:
         env_file = ".env"
         case_sensitive = False

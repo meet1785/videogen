@@ -7,6 +7,7 @@ from typing import Optional, Dict, Any
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
+import httpx
 import numpy as np
 from PIL import Image
 import imageio
@@ -73,14 +74,16 @@ class VideoGenerationService:
             duration=duration,
             seed=request.seed,
             num_inference_steps=request.num_inference_steps,
-            guidance_scale=request.guidance_scale
+            guidance_scale=request.guidance_scale,
+            webhook_url=request.webhook_url
         )
         
         # Start generation in background
         asyncio.create_task(self._generate_video_async(
             task_id, request.prompt, request.negative_prompt,
             width, height, fps, duration,
-            request.seed, request.num_inference_steps, request.guidance_scale
+            request.seed, request.num_inference_steps, request.guidance_scale,
+            request.webhook_url
         ))
         
         return task_id
@@ -96,7 +99,8 @@ class VideoGenerationService:
         duration: int,
         seed: Optional[int],
         num_inference_steps: int,
-        guidance_scale: float
+        guidance_scale: float,
+        webhook_url: Optional[str] = None
     ):
         """Generate video asynchronously."""
         try:
@@ -118,18 +122,23 @@ class VideoGenerationService:
                 task_id, prompt, negative_prompt, width, height, fps, duration, seed
             )
             
+            video_url = f"/api/v1/download/{os.path.basename(video_path)}"
+
             # Update task as completed
             await self.db.update_task(
                 task_id,
                 status="completed",
                 message="Video generated successfully",
                 progress=100,
-                video_url=f"/api/v1/download/{os.path.basename(video_path)}",
+                video_url=video_url,
                 video_path=video_path,
                 completed=True
             )
             
             logger.info(f"Video generation completed for task {task_id}")
+
+            # Fire webhook notification if configured
+            await self._notify_webhook(webhook_url, task_id, "completed", video_url=video_url)
             
         except Exception as e:
             logger.error(f"Error generating video for task {task_id}: {str(e)}")
@@ -140,6 +149,7 @@ class VideoGenerationService:
                 error=str(e),
                 completed=True
             )
+            await self._notify_webhook(webhook_url, task_id, "failed", error=str(e))
     
     def _generate_video_sync(
         self,
@@ -228,6 +238,101 @@ class VideoGenerationService:
         # Default color
         return (100, 100, 200)
     
+    async def _notify_webhook(
+        self,
+        webhook_url: Optional[str],
+        task_id: str,
+        status: str,
+        video_url: Optional[str] = None,
+        error: Optional[str] = None
+    ):
+        """POST a completion notification to the caller's webhook URL.
+
+        Payload schema::
+
+            {
+                "task_id": str,          # UUID of the task
+                "status":  str,          # "completed" or "failed"
+                "video_url": str | None, # download path, populated on success
+                "error":   str | None    # error message, populated on failure
+            }
+        """
+        if not webhook_url:
+            return
+        if not self._is_safe_webhook_url(webhook_url):
+            logger.warning(
+                f"Webhook URL rejected for task {task_id}: "
+                "URL must use http/https and cannot target a private network address."
+            )
+            return
+        payload = {
+            "task_id": task_id,
+            "status": status,
+            "video_url": video_url,
+            "error": error,
+        }
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    webhook_url,
+                    json=payload,
+                    timeout=settings.webhook_timeout
+                )
+            logger.info(
+                f"Webhook notified for task {task_id}: "
+                f"status={response.status_code}"
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Webhook notification failed for task {task_id}: {exc}"
+            )
+
+    @staticmethod
+    def _is_safe_webhook_url(url: str) -> bool:
+        """Return True only when *url* is a safe, public http/https URL.
+
+        Rejects:
+        - Non-http/https schemes (e.g. file://, ftp://)
+        - Loopback addresses (127.0.0.0/8, ::1)
+        - Private RFC-1918 ranges (10/8, 172.16/12, 192.168/16)
+        - Link-local addresses (169.254/16)
+        - Unspecified host
+        """
+        import ipaddress
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(url)
+        except Exception:
+            return False
+
+        if parsed.scheme not in {"http", "https"}:
+            return False
+
+        host = parsed.hostname
+        if not host:
+            return False
+
+        # Reject well-known local names
+        if host.lower() in {"localhost", "localhos"}:
+            return False
+
+        try:
+            addr = ipaddress.ip_address(host)
+            if (
+                addr.is_loopback
+                or addr.is_private
+                or addr.is_link_local
+                or addr.is_unspecified
+                or addr.is_reserved
+            ):
+                return False
+        except ValueError:
+            # Not an IP literal — hostname-based URLs are allowed
+            pass
+
+        return True
+
     async def get_task_status(self, task_id: str) -> Optional[Dict[str, Any]]:
         """Get the status of a video generation task."""
         task = await self.db.get_task(task_id)
